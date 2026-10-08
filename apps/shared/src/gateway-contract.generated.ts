@@ -2157,35 +2157,6 @@ export interface ProfilesGetAssetResult {
   size?: number | null
   data?: string | null
 }
-/** Client→server method params / server→client request params. Unknown keys are rejected. */
-export type Params = Record<string, never>
-/** ``created`` is false when an existing setup profile was found (and returned untouched). */
-export interface OnboardingEnsureSetupProfileResult {
-  name: string
-  path: string
-  created: boolean
-}
-export interface OnboardingEnsureSetupSessionParams {
-  messages?: Record<string, unknown>[] | null
-}
-export interface OnboardingEnsureSetupSessionResult {
-  profile: string
-  session_id: string
-  empty: boolean
-}
-export interface OnboardingStateResult {
-  eligible: boolean
-  intro: OnboardingIntro
-  failed_starts: number
-  completed_at?: string | null
-  profile?: string | null
-}
-export type OnboardingIntro = 'unseen' | 'seen'
-export interface OnboardingResetSetupProfileResult {
-  name: string
-  path: string
-  reset?: boolean
-}
 export interface VaultListResult {
   items?: VaultItem[]
 }
@@ -3615,30 +3586,6 @@ export interface LlmOneshotParams {
 export interface LlmOneshotResult {
   text: string
 }
-/** ``tool_call_id`` names the rejected call; its saved tool row records a started retry (display-only). */
-export interface SessionStartChatParams {
-  session_id: string
-  profile?: string | null
-  tool_call_id: string
-  args: StartChatArgs
-}
-/** The ``start_chat`` tool's arguments (``tools/start_chat_tool.py``). */
-export interface StartChatArgs {
-  message: string
-  title?: string | null
-  profile?: string | null
-}
-/** ``tui_gateway/start_chat.py``: ``started`` carries the new chat, ``rejected`` a reason and whether the same arguments may succeed on another try (``retryable``). A call already retried returns that retry's result. */
-export interface SessionStartChatResult {
-  status: StartChatStatus
-  session_id?: string | null
-  profile?: string | null
-  title?: string | null
-  message?: string | null
-  reason?: string | null
-  retryable?: boolean | null
-}
-export type StartChatStatus = 'started' | 'rejected'
 export interface SystemBatteryParams {
   profile?: string | null
 }
@@ -5232,14 +5179,6 @@ export interface RpcMethods {
   'model.options': { params: ModelOptionsParams; result: ModelOptionsResult }
   /** Save an API key for a provider and return its refreshed inventory row. */
   'model.save_key': { params: ModelSaveKeyParams; result: ModelSaveKeyResult }
-  /** Create-or-read the backend-owned setup profile; the backend picks the name. */
-  'onboarding.ensure_setup_profile': { params: Params; result: OnboardingEnsureSetupProfileResult }
-  'onboarding.ensure_setup_session': { params: OnboardingEnsureSetupSessionParams; result: OnboardingEnsureSetupSessionResult }
-  'onboarding.mark_seen': { params: Params; result: OnboardingStateResult }
-  'onboarding.record_failed_start': { params: Params; result: OnboardingStateResult }
-  /** Restore the setup profile to its created state in place (soul, memories, skills, sessions). */
-  'onboarding.reset_setup_profile': { params: Params; result: OnboardingResetSetupProfileResult }
-  'onboarding.state': { params: Params; result: OnboardingStateResult }
   /** Spill a large paste to a file and hand back the inline placeholder. */
   'paste.collapse': { params: PasteCollapseParams; result: PasteCollapseResult }
   /** Render a PDF's pages to PNG and queue them as images for the next turn. */
@@ -5404,8 +5343,6 @@ export interface RpcMethods {
   'session.save': { params: SessionSaveParams; result: SessionSaveResult }
   /** Set/clear hidden (out of the default list, still resumable by its owner) on a session + lineage. */
   'session.set_hidden': { params: SessionSetHiddenParams; result: SessionSetHiddenResult }
-  /** Run a start_chat request again from the session that made it (the handoff card's Retry). */
-  'session.start_chat': { params: SessionStartChatParams; result: SessionStartChatResult }
   /** Rendered /status text for the session. */
   'session.status': { params: SessionStatusParams; result: SessionStatusResult }
   /** Inject text into the next tool result without interrupting the turn. */
@@ -5636,12 +5573,6 @@ export const RPC_METHODS = [
   'model.disconnect',
   'model.options',
   'model.save_key',
-  'onboarding.ensure_setup_profile',
-  'onboarding.ensure_setup_session',
-  'onboarding.mark_seen',
-  'onboarding.record_failed_start',
-  'onboarding.reset_setup_profile',
-  'onboarding.state',
   'paste.collapse',
   'pdf.attach',
   'pet.cancel',
@@ -5724,7 +5655,6 @@ export const RPC_METHODS = [
   'session.resume',
   'session.save',
   'session.set_hidden',
-  'session.start_chat',
   'session.status',
   'session.steer',
   'session.title',
