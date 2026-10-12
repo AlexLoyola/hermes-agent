@@ -1,0 +1,51 @@
+name: zz win clone probe (temporary)
+
+on:
+  push:
+    branches: ['probe/win-clone-checkout']
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: install.ps1 repository stage (${{ matrix.variant }} / ${{ matrix.run }})
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [default, longprofile, verylongprofile]
+        run: [1]
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v7.0.1
+        with:
+          fetch-depth: 1
+
+      - name: Real install.ps1 -Stage repository against github.com (Windows PowerShell 5.1)
+        shell: powershell
+        continue-on-error: true
+        run: |
+          $ErrorActionPreference = 'Continue'
+          if ('${{ matrix.variant }}' -eq 'longprofile') {
+            $root = 'C:\Users\abcdefghijklmnopqrstuvwxyz0123456789\AppData\Local\hermes'
+          } elseif ('${{ matrix.variant }}' -eq 'verylongprofile') {
+            $root = 'C:\Users\abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz\AppData\Local\hermes'
+          } else {
+            $root = Join-Path $env:LOCALAPPDATA 'hermes'
+          }
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          $env:HERMES_RUNTIME_DIR = Join-Path $env:RUNNER_TEMP 'hermes-tools'
+          Write-Host "root=$root len=$($root.Length)"
+          $sw = [Diagnostics.Stopwatch]::StartNew()
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\install.ps1 -Stage repository -Json -NonInteractive -HermesHome $root -InstallDir (Join-Path $root 'hermes-agent') *>&1 | ForEach-Object { "$_" }
+          Write-Host "exit=$LASTEXITCODE elapsed=$($sw.Elapsed)"
+          $git = Get-ChildItem -Recurse -Filter git.exe -Path $env:HERMES_RUNTIME_DIR -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like '*\cmd\git.exe' } | Select-Object -First 1
+          if ($git) { & $git.FullName --version; & $git.FullName config --show-origin --list | Select-String -Pattern 'longpath|sslbackend|autocrlf|symlink|protect' }
+          if (Test-Path (Join-Path $root 'hermes-agent\.git')) {
+            & $git.FullName -C (Join-Path $root 'hermes-agent') status --porcelain | Measure-Object | ForEach-Object { "dirty entries: $($_.Count)" }
+            & $git.FullName -C (Join-Path $root 'hermes-agent') log -1 --oneline
+          } else { Write-Host 'NO CHECKOUT PUBLISHED' }
+          Get-ChildItem $root -Force | Format-Table Name, Mode
+          $log = Join-Path $root 'logs\install.log'
+          if (Test-Path $log) { Write-Host '--- install.log tail ---'; Get-Content $log -Tail 80 }
