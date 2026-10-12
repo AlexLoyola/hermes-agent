@@ -1558,6 +1558,14 @@ export function adoptContributedPanes(): void {
       !inTree.has(c.id) && !dismissed.has(c.id) && !isTreePaneParked(c.id) && placementOf(c.id) !== FLOATING_PLACEMENT
   )
 
+  // A pane docked against another pane arriving in the SAME pass goes after
+  // it: adopted first, its anchor isn't in the tree yet and it would fall back
+  // into main's zone (a session's preview tabs returning stacked behind the
+  // chat instead of beside it).
+  const missingIds = new Set(missing.map(c => c.id))
+  const waitsForAnchor = (paneId: string) => missingIds.has(dataOf(paneId)?.dock?.pane ?? '')
+  missing.sort((a, b) => Number(waitsForAnchor(a.id)) - Number(waitsForAnchor(b.id)))
+
   if (missing.length === 0) {
     if (healed !== tree) {
       commit(healed)
